@@ -1,11 +1,19 @@
 <div>
-  <h1>Welcome, {{ .username }}</h1>
+    <h1>Welcome, {{ .username }}</h1>
 
-  <form action="/api/addUptime" , method="POST">
-    <input name="user" type="hidden" value={{ .username }} />
-    <label for="url" />
-    <input name="url" />
-    <label for="time" />
-    <input type="time" name="time" />
-  </form>
+    <form action="/api/addUptime" , method="POST">
+        <input name="user" type="hidden" value="{{ .username }}" />
+        <label for="url" />
+        <input name="url" />
+        <button type="submit">Create uptime</button>
+    </form>
+
+    <h2>Your monitored URLs</h2>
+    <ul>
+        {{ range .uptimes }}
+        <li>{{ .URL }} - {{ .Status }}</li>
+        {{ else }}
+        <li>No uptimes configured yet</li>
+        {{ end }}
+    </ul>
 </div>

@@ -3,10 +3,17 @@ package main
 import (
 	"database/sql"
 	"net/http"
+	"time"
 
+	"github.com/Domenicopezzullo/skibidi-uptime/checker"
 	"github.com/gin-gonic/gin"
 	_ "modernc.org/sqlite"
 )
+
+type Uptime struct {
+	URL    string
+	Status string
+}
 
 type User struct {
 	ID       int
@@ -20,8 +27,12 @@ func main() {
 		panic(err.Error())
 	}
 	defer db.Close()
+	_, err = db.Exec("PRAGMA journal_mode=WAL")
+	if err != nil {
+		panic(err.Error())
+	}
+	checker.StartMonitoringFromDB(db, 30*time.Second)
 
-	// Create tables
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS Users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT,
@@ -34,7 +45,7 @@ func main() {
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS Uptimes (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		url TEXT,
-		time TEXT,
+		status TEXT DEFAULT 'UNKNOWN',
 		userId INTEGER,
 		FOREIGN KEY(userId) REFERENCES Users(id)
 	)`)
@@ -42,7 +53,6 @@ func main() {
 		panic(err.Error())
 	}
 
-	// Setup Gin
 	s := gin.Default()
 	s.LoadHTMLGlob("templates/*")
 
@@ -80,15 +90,30 @@ func main() {
 			return
 		}
 
+		rows, err := db.Query("SELECT url, status FROM Uptimes WHERE userId = (SELECT id FROM Users WHERE username = ?)", username)
+		if err != nil {
+			ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to load uptimes"})
+			return
+		}
+		defer rows.Close()
+
+		var uptimes []Uptime
+		for rows.Next() {
+			var u Uptime
+			if err := rows.Scan(&u.URL, &u.Status); err == nil {
+				uptimes = append(uptimes, u)
+			}
+		}
+
 		ctx.HTML(http.StatusOK, "dashboard.html", gin.H{
 			"username": username,
+			"uptimes":  uptimes,
 		})
 	})
 
 	// API endpoint
 	s.POST("/api/addUptime", func(ctx *gin.Context) {
 		url := ctx.PostForm("url")
-		time := ctx.PostForm("time")
 		user := ctx.PostForm("user")
 
 		var userID int
@@ -101,13 +126,11 @@ func main() {
 			return
 		}
 
-		_, err = db.Exec("INSERT INTO Uptimes (url, time, userId) VALUES (?, ?, ?)", url, time, userID)
+		_, err = db.Exec("INSERT INTO Uptimes (url, status, userId) VALUES (?, ?, ?)", url, "UNKNOWN", userID)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to insert uptime"})
 			return
 		}
-
-		ctx.JSON(http.StatusOK, gin.H{"message": "Uptime recorded"})
 	})
 
 	s.Run(":8080")
