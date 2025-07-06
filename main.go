@@ -54,7 +54,7 @@ func main() {
 	}
 
 	s := gin.Default()
-	s.LoadHTMLGlob("templates/*")
+	s.LoadHTMLGlob("templates/html/*")
 
 	s.GET("/", func(ctx *gin.Context) {
 		ctx.HTML(http.StatusOK, "login.html", gin.H{})
@@ -131,6 +131,9 @@ func main() {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to insert uptime"})
 			return
 		}
+		ctx.JSON(200, gin.H{
+			"abc": "test",
+		})
 	})
 
 	s.Run(":8080")
