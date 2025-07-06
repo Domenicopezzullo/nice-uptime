@@ -27,12 +27,16 @@ func main() {
 		panic(err.Error())
 	}
 	defer db.Close()
+
 	_, err = db.Exec("PRAGMA journal_mode=WAL")
 	if err != nil {
 		panic(err.Error())
 	}
+
+	// Start checker
 	checker.StartMonitoringFromDB(db, 30*time.Second)
 
+	// Create tables
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS Users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT,
@@ -53,13 +57,16 @@ func main() {
 		panic(err.Error())
 	}
 
+	// Gin setup
 	s := gin.Default()
 	s.LoadHTMLGlob("templates/html/*")
 
+	// Login page
 	s.GET("/", func(ctx *gin.Context) {
 		ctx.HTML(http.StatusOK, "login.html", gin.H{})
 	})
 
+	// Handle login and show dashboard
 	s.POST("/", func(ctx *gin.Context) {
 		username := ctx.PostForm("username")
 		password := ctx.PostForm("password")
@@ -68,8 +75,8 @@ func main() {
 		err := db.QueryRow("SELECT id, username, password FROM Users WHERE username = ?", username).
 			Scan(&user.ID, &user.Username, &user.Password)
 
-		if err == sql.ErrNoRows {
-			ctx.JSON(http.StatusNotFound, gin.H{
+		if err == sql.ErrNoRows || password != user.Password {
+			ctx.JSON(http.StatusUnauthorized, gin.H{
 				"authorized": false,
 				"message":    "Wrong username or password",
 			})
@@ -82,15 +89,23 @@ func main() {
 			return
 		}
 
-		if password != user.Password {
-			ctx.JSON(http.StatusUnauthorized, gin.H{
-				"authorized": false,
-				"message":    "Wrong username or password",
-			})
+		// Redirect to dashboard
+		ctx.Redirect(http.StatusSeeOther, "/dashboard?user="+username)
+	})
+
+	// Dashboard view (GET)
+	s.GET("/dashboard", func(ctx *gin.Context) {
+		username := ctx.Query("user")
+		added := ctx.Query("added") == "true"
+
+		var userID int
+		err := db.QueryRow("SELECT id FROM Users WHERE username = ?", username).Scan(&userID)
+		if err != nil {
+			ctx.JSON(http.StatusBadRequest, gin.H{"message": "User not found"})
 			return
 		}
 
-		rows, err := db.Query("SELECT url, status FROM Uptimes WHERE userId = (SELECT id FROM Users WHERE username = ?)", username)
+		rows, err := db.Query("SELECT url, status FROM Uptimes WHERE userId = ?", userID)
 		if err != nil {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to load uptimes"})
 			return
@@ -106,12 +121,13 @@ func main() {
 		}
 
 		ctx.HTML(http.StatusOK, "dashboard.html", gin.H{
-			"username": username,
-			"uptimes":  uptimes,
+			"username":     username,
+			"uptimes":      uptimes,
+			"added_uptime": added,
 		})
 	})
 
-	// API endpoint
+	// Add Uptime (POST) -> redirect to GET
 	s.POST("/api/addUptime", func(ctx *gin.Context) {
 		url := ctx.PostForm("url")
 		user := ctx.PostForm("user")
@@ -131,9 +147,9 @@ func main() {
 			ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to insert uptime"})
 			return
 		}
-		ctx.JSON(200, gin.H{
-			"abc": "test",
-		})
+
+		// Redirect to dashboard with success indicator
+		ctx.Redirect(http.StatusSeeOther, "/dashboard?user="+user+"&added=true")
 	})
 
 	s.Run(":8080")
