@@ -1,0 +1,11 @@
+<div>
+  <h1>Welcome, {{ .username }}</h1>
+
+  <form action="/api/addUptime" , method="POST">
+    <input name="user" type="hidden" value={{ .username }} />
+    <label for="url" />
+    <input name="url" />
+    <label for="time" />
+    <input type="time" name="time" />
+  </form>
+</div>

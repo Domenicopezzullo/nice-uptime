@@ -13,7 +13,11 @@ func main() {
 	if err != nil {
 		panic(err.Error())
 	}
-	_, err = db.Exec("CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, password TEXT)")
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS Users (id INTEGER PRIMARY KEY AUTOINCREMENT, username TEXT, password TEXT)")
+	if err != nil {
+		panic(err.Error())
+	}
+	_, err = db.Exec("CREATE TABLE IF NOT EXISTS Uptimes (id INTEGER PRIMARY KEY AUTOINCREMENT, url TEXT, time TEXT, userId INTEGER, FOREIGN KEY(userId) REFERENCES Users(id))")
 	if err != nil {
 		panic(err.Error())
 	}
@@ -28,8 +32,8 @@ func main() {
 
 		fmt.Println(username)
 
-		rows := db.QueryRow("SELECT * FROM users where username = '?'", username)
-		fmt.Printf("SELECT * FROM users where username = '%s'\n", username)
+		rows := db.QueryRow("SELECT * FROM Users where username = '?'", username)
+		fmt.Printf("SELECT * FROM Users where username = '%s'\n", username)
 		if err != nil {
 			panic(err.Error())
 		}
@@ -55,6 +59,26 @@ func main() {
 			"username": username,
 		})
 
+	})
+
+	// api endpoints
+
+	s.POST("/api/addUptime", func(ctx *gin.Context) {
+		url := ctx.PostForm("url")
+		time := ctx.PostForm("time")
+		user := ctx.PostForm("user")
+
+		fmt.Printf("time: %v\n", time)
+
+		id := db.QueryRow("SELECT id FROM Users where username = '?'", user)
+
+		fmt.Printf("id: %v\n", id)
+
+		if id.Err() != nil {
+			panic(id.Err().Error())
+		}
+
+		db.Exec("INSERT INTO Uptimes VALUES (?, ?)", &url, time)
 	})
 
 	s.Run(":8080")
