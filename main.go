@@ -36,7 +36,7 @@ func main() {
 
 		fmt.Println(rows)
 
-		err := rows.Scan()
+		err := rows.Err()
 		if err != nil && err == sql.ErrNoRows {
 			ctx.JSON(404, gin.H{
 				"authorized": false,
@@ -51,9 +51,8 @@ func main() {
 			return
 		}
 
-		ctx.JSON(200, gin.H{
-			"authorized": true,
-			"message":    fmt.Sprintf("Welcome, %s", username),
+		ctx.HTML(200, "dashboard.html", gin.H{
+			"username": username,
 		})
 
 	})
