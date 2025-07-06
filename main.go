@@ -33,10 +33,8 @@ func main() {
 		panic(err.Error())
 	}
 
-	// Start checker
 	checker.StartMonitoringFromDB(db, 30*time.Second)
 
-	// Create tables
 	_, err = db.Exec(`CREATE TABLE IF NOT EXISTS Users (
 		id INTEGER PRIMARY KEY AUTOINCREMENT,
 		username TEXT,
@@ -57,16 +55,13 @@ func main() {
 		panic(err.Error())
 	}
 
-	// Gin setup
 	s := gin.Default()
 	s.LoadHTMLGlob("templates/html/*")
 
-	// Login page
 	s.GET("/", func(ctx *gin.Context) {
 		ctx.HTML(http.StatusOK, "login.html", gin.H{})
 	})
 
-	// Handle login and show dashboard
 	s.POST("/", func(ctx *gin.Context) {
 		username := ctx.PostForm("username")
 		password := ctx.PostForm("password")
@@ -89,11 +84,9 @@ func main() {
 			return
 		}
 
-		// Redirect to dashboard
 		ctx.Redirect(http.StatusSeeOther, "/dashboard?user="+username)
 	})
 
-	// Dashboard view (GET)
 	s.GET("/dashboard", func(ctx *gin.Context) {
 		username := ctx.Query("user")
 		added := ctx.Query("added") == "true"
@@ -127,7 +120,6 @@ func main() {
 		})
 	})
 
-	// Add Uptime (POST) -> redirect to GET
 	s.POST("/api/addUptime", func(ctx *gin.Context) {
 		url := ctx.PostForm("url")
 		user := ctx.PostForm("user")
@@ -148,7 +140,6 @@ func main() {
 			return
 		}
 
-		// Redirect to dashboard with success indicator
 		ctx.Redirect(http.StatusSeeOther, "/dashboard?user="+user+"&added=true")
 	})
 
